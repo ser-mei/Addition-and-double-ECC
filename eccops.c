@@ -26,6 +26,8 @@ int main()
     mpz_t x3, y3;
     mpz_t jx1, jy1, jz1, alpha, beta, jx2, jy2, jz2, aux, jx3, jy3, jz3;
 
+    mpz_t R1, R2, R3, R4, R5, R6, R7, R8, R9, R10, R11, R12, BAx1, BAy1, BAz1;
+
     gmp_randstate_t state;
 
     //Inicialización
@@ -59,6 +61,24 @@ int main()
     mpz_init(jx3);
     mpz_init(jy3);
     mpz_init(jz3);
+
+    mpz_init(R1);
+    mpz_init(R2);
+    mpz_init(R3);
+    mpz_init(R4);
+    mpz_init(R5);
+    mpz_init(R6);
+    mpz_init(R7);
+    mpz_init(R8);
+    mpz_init(R9);
+    mpz_init(R10);
+    mpz_init(R11);
+    mpz_init(R12);
+
+    mpz_init(BAx1);
+    mpz_init(BAy1);
+    mpz_init(BAz1);
+
 
 
     //Seed del random state
@@ -255,6 +275,99 @@ int main()
 
     gmp_printf("G + 2J afin= (%#Zd, %#Zd)\n", jx3, jy3);
 
+
+    printf("Bloque atómico suma mixta G + 2J \n");
+
+    //Asignación
+    mpz_set(R1, jx2);
+    mpz_set(R2, jy2);
+    mpz_set(R3, jz2);
+    mpz_set(R4, x1);
+    mpz_set(R5, y1);
+
+    //Bloque 1
+    mpz_powm(R6, R3, dos, p); //S
+    //mpz_mul_ui(R1, R1, -1); //N
+    mpz_sub(R1, p, R1);
+    mpz_add(R2, R2, R2); //A
+    mpz_add(R8, R1, R1); //A
+    mpz_mul(R4, R6, R4); //M
+    mpz_add(R1, R4, R1); //A
+
+    //Bloque 2
+    mpz_powm(R4, R1, dos, p); //S
+//    mpz_mul_ui(R9, R2, -1); //N
+    mpz_sub(R9, p, R2);
+    mpz_add(R10, R6, R4); //A
+    mpz_add(R11, R3, R1); //A
+    mpz_mul(R6, R6, R3); //M
+    mpz_add(R3, R8, R8); //A
+
+    //Bloque 3
+    mpz_powm(R8, R4, dos, p); //S
+//    mpz_mul_ui(R10, R10, -1); //N
+    mpz_sub(R10, p, R10);
+    mpz_add(R12, R4, R1); //A
+    mpz_add(R1, R8, R4); //A
+    mpz_mul(R6, R6, R5); //M
+    mpz_add(R9, R6, R9); //A
+
+    //Bloque 4
+    mpz_powm(R8, R12, dos, p); //S
+//    mpz_mul_ui(R1, R1, -1); //N
+    mpz_sub(R1, p, R1);
+    mpz_add(R1, R8, R1); //A
+    mpz_add(R9, R9, R6); //A
+    mpz_mul(R6, R3, R4); //M
+    mpz_add(R3, R6, R6); //A
+
+    //Bloque 5
+    mpz_powm(R4, R9, dos, p); //S
+//    mpz_mul_ui(R1, R1, -1); //N
+    mpz_sub(R1, p, R1);
+    mpz_add(R8, R1, R1); //A
+    mpz_add(R3, R4, R3); //A
+    mpz_mul(R4, R2, R8); //M
+    mpz_add(R1, R3, R8); //A
+
+    mpz_mod(R1, R1, p);
+
+    //Bloque 6
+    mpz_powm(R3, R11, dos, p); //S
+//    mpz_mul_ui(R2, R9, -1); //N
+    mpz_sub(R2, p, R9);
+    mpz_add(R7, R6, R1); //A
+    mpz_add(R3, R3, R10); //A
+
+    mpz_mod(R3, R3, p);
+
+    mpz_mul(R8, R2, R7); //M
+    mpz_add(R2, R8, R4); //A
+
+    mpz_mod(R2, R2, p);
+
+    //Asignación
+    mpz_set(BAx1, R1);
+    mpz_set(BAy1, R2);
+    mpz_set(BAz1, R3);
+
+    printf("Resultado Suma mixta bloque atomíco 2 Jacobianas\n");
+
+    gmp_printf("G+2P: (%#Zd, %#Zd, %#Zd) \n", R1, R2, R3);
+
+    //Conversión a coordenadas afines
+    mpz_invert(inverso, BAz1, p);
+    mpz_mul(inverso, inverso, inverso);
+    mpz_mul(BAx1, BAx1, inverso);
+    mpz_mod(BAx1, BAx1, p);
+    mpz_mul(inverso, inverso, inverso);
+    mpz_mul(inverso, inverso, BAz1);
+    mpz_mul(BAy1, BAy1, inverso);
+    mpz_mod(BAy1, BAy1, p);
+
+    printf("Resultado Suma mixta bloque atomíco 2 afines\n");
+
+    gmp_printf("G+2P: (%#Zd, %#Zd) \n", BAx1, BAy1);
 
 
     //Liberar memoria
