@@ -197,6 +197,11 @@ int main()
 
     //Cálculo de G + 2J con suma mixta
 
+    printf("ABARZUAAAAAAA \n");
+    gmp_printf("G afin= (%#Zd, %#Zd)\n", x1, y1);
+    gmp_printf("2J afin= (%#Zd, %#Zd, %#Zd)\n", jx2, jy2, jz2);
+
+
     //Cálculo de alpha
     mpz_powm(alpha, jz2, tres, p);
     mpz_mul(alpha, alpha, y1);
@@ -209,20 +214,21 @@ int main()
     mpz_sub(beta, beta, jx2);
 
     //Cálculo de jx3
-    mpz_powm(jx3, alpha, dos, p);
-    mpz_powm(aux, beta, tres, p);
-    mpz_submul(jx3, jx3, aux);
-    mpz_powm(aux, beta, dos, p);
-    mpz_mul(aux, aux, jx2);
-    mpz_submul(jx3, aux, dos);
-    mpz_mod(jx3, jx3, p);
+    mpz_powm(jx3, alpha, dos, p); //Alpha al cuadrado
+    mpz_powm(aux, beta, tres, p); //Beta al cubo
+    //mpz_submul(jx3, beta, aux); //Alpha al cuadrado - Beta al cubo
+    mpz_sub(jx3, jx3, aux); //Alpha al cuadrado - Beta al cubo
+    mpz_powm(aux, beta, dos, p); //Beta al cuadrado
+    mpz_mul(aux, aux, jx2); //Beta al cuadrado * jx2
+    mpz_submul(jx3, aux, dos); //Alpha al cuadrado - Beta al cubo - 2*Beta al cuadrado * jx2
+    mpz_mod(jx3, jx3, p); //Modulo p
 
     //Cálculo de jy3
-    mpz_powm(aux, beta, dos, p);
-    mpz_mul(jy3, jx2, aux);
-    mpz_sub(jy3, jy3, jx3);
+    mpz_powm(aux, beta, dos, p); //Beta al cuadrado
+    mpz_mul(jy3, jx2, aux); //jx2 * Beta al cuadrado
+    mpz_sub(jy3, jy3, jx3); //jx2 * Beta al cuadrado - jx3
     mpz_mul(jy3, jy3, alpha);
-    mpz_mul(aux, aux, beta);
+    mpz_mul(aux, aux, beta); 
     mpz_mul(aux, aux, jy2);
     mpz_sub(jy3, jy3, aux);
     mpz_mod(jy3, jy3, p);
@@ -241,7 +247,7 @@ int main()
     mpz_mul(jx3, jx3, inverso);
     mpz_mod(jx3, jx3, p);
     mpz_mul(inverso, inverso, inverso);
-    mpz_mul(inverso, inverso, jz2);
+    mpz_mul(inverso, inverso, jz3);
     mpz_mul(jy3, jy3, inverso);
     mpz_mod(jy3, jy3, p);
 
