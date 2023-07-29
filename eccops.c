@@ -9,9 +9,15 @@
 #include <time.h>
 #include <gmp.h>
 
-void echo(mpz_t *a, mpz_t *b);
+void dobladoAfin(mpz_t x1, mpz_t y1, mpz_t p, mpz_t a, mpz_t x2, mpz_t y2);
+void sumaAfin(mpz_t x1, mpz_t y1, mpz_t x2, mpz_t y2, mpz_t x3, mpz_t y3, mpz_t p);
+
+void dobladoJacobiano(mpz_t jx1, mpz_t jy1, mpz_t jz1, mpz_t jx2,mpz_t jy2, mpz_t jz2, mpz_t a, mpz_t p);
+void sumaMixta(mpz_t x1, mpz_t y1, mpz_t jx2, mpz_t jy2, mpz_t jz2, mpz_t jx3, mpz_t jy3, mpz_t jz3, mpz_t p);
+
 void AtomicBlockJacobianDoubling(mpz_t jx1, mpz_t jy1, mpz_t jz1, mpz_t p);
 void AtomicBlockMixedAddition(mpz_t jx1, mpz_t jy1, mpz_t jz1, mpz_t x1, mpz_t y1, mpz_t p, mpz_t inverso);
+
 
 
 int main()
@@ -21,19 +27,15 @@ int main()
     const char EC_B[] = "64210519 e59c80e7 0fa7e9ab 72243049 feb8deec c146b9b1";
     const char EC_X1[] = "188da80e b03090f6 7cbf20eb 43a18800 f4ff0afd 82ff1012";
     const char EC_Y1[] = "07192b95 ffc8da78 631011ed 6b24cdd5 73f977a1 1e794811";
-    const char SEED[] = "3045ae6f c8422f64 ed579528 d38120ea e12196d5";
 
-    //Variables y estado aleatorio
-
+    //Variables
     mpz_t p, a, b, dos, tres, seed, x1, y1, x2, y2, lambda1, inverso;
     mpz_t x3, y3;
     mpz_t jx1, jy1, jz1, alpha, beta, jx2, jy2, jz2, aux, jx3, jy3, jz3;
 
-    gmp_randstate_t state;
 
     //Inicialización
     mpz_init(p);
-    gmp_randinit_mt(state);
 
     mpz_init(a);
     mpz_init(b);
@@ -41,7 +43,6 @@ int main()
     mpz_init(x1);
     mpz_init(y1);
     mpz_init(lambda1);
-    mpz_init(seed);
     mpz_init(inverso);
     mpz_init(x2);
     mpz_init(y2);
@@ -65,14 +66,8 @@ int main()
 
 
 
-    //Seed del random state
-    //gmp_randseed_ui(state, time(NULL));
-
-
     //Variables de tiempo para la medición
     clock_t time1, time2;
-
-    //time1 = clock();
 
     // Set de parámetros de la curva: p, a, b;
     mpz_set_str(p, primo, 10);
@@ -80,27 +75,134 @@ int main()
     mpz_set_ui(tres, 3);
     mpz_sub(a, p, tres);
     mpz_set_str(b, EC_B, 16);
-    mpz_set_str(seed, SEED, 16);
-
-    //printf("This is a test\n");
-    //echo(&dos, &tres);
-
-    //Seed del random state
-    gmp_randseed(state, seed);
 
     //Set del punto base G: (x1,y1)
     mpz_set_str(x1, EC_X1, 16);
     mpz_set_str(y1, EC_Y1, 16);
 
+    printf("-----------Parámetros de la EC-----------\n");
+    gmp_printf("primo: %#Zd\n", p);
+    gmp_printf("Elliptic Curve: y^2 = x^3 + %Zd *x + %Zd \n", a, b);
+    gmp_printf("Punto base G: (%#Zd, %#Zd) \n", x1, y1);
+
+    time1 = clock();
+    //Doblado de punto G en coordenadas afines
+    dobladoAfin(x1, y1, p, a, x2, y2);
+    time2 = clock();
+
+    printf("-----------Doblado con fórmulas explícitas en coordenadas afín-----------\n");
+    gmp_printf("2G = (%#Zd, %#Zd)\n", x2, y2);
+    printf("Tiempo de ejecución: %f\n", (double)(time2 - time1) / CLOCKS_PER_SEC);
+    
+    time1 = clock();
+    //Suma coordenadas afines G+2G
+    sumaAfin(x1, y1, x2, y2, x3, y3, p);
+    time2 = clock();
+
+    printf("-----------Suma con fórmulas explícitas en coordenadas afín-----------\n");
+    gmp_printf("G + 2G = (%#Zd, %#Zd)\n", x3, y3);
+    printf("Tiempo de ejecución: %f\n", (double)(time2 - time1) / CLOCKS_PER_SEC);
+
+
+    //Set de coordenadas jacobianas punto J
+    mpz_set(jx1, x1);
+    mpz_set(jy1, y1);
+    mpz_set_ui(jz1, 1);
+
+    time1 = clock();
+    //Doblado 2G en coordenadas jacobianas
+    dobladoJacobiano(jx1, jy1, jz1, jx2, jy2, jz2, a, p);
+    time2 = clock();
+
+    printf("\n-----------Doblado con fórmulas explícitas en coordenadas jacobianas-----------\n");
+    gmp_printf("2J = (%#Zd, %#Zd, %#Zd)\n", jx2, jy2, jz2);
+    printf("Tiempo de ejecución: %f\n", (double)(time2 - time1) / CLOCKS_PER_SEC);
+
+
+    //Conversión a coordenadas afines
+/*  mpz_invert(inverso, jz2, p);
+    mpz_mul(inverso, inverso, inverso);
+    mpz_mul(jx2, jx2, inverso);
+    mpz_mod(jx2, jx2, p);
+    mpz_mul(inverso, inverso, inverso);
+    mpz_mul(inverso, inverso, jz2);
+    mpz_mul(jy2, jy2, inverso);
+    mpz_mod(jy2, jy2, p); */
+
+    printf("\n-----------Doblado con Jacobianas en coordenadas afín-----------\n");
+    gmp_printf("2J afin= (%#Zd, %#Zd)\n", jx2, jy2);
+
+    time1 = clock();
+    //Cálculo de G + 2J con suma mixta
+    sumaMixta(x1, y1, jx2, jy2, jz2, jx3, jy3, jz3, p);
+    time2 = clock();
+
+    printf("\n-----------Suma con fórmulas mixtas en coordenadas jacobianas-----------\n");
+    gmp_printf("G + 2J = (%#Zd, %#Zd, %#Zd)\n", jx3, jy3, jz3);
+    printf("Tiempo de ejecución: %f\n", (double)(time2 - time1) / CLOCKS_PER_SEC);
+
+     //Conversión a coordenadas afines
+    mpz_invert(inverso, jz3, p);
+    mpz_mul(inverso, inverso, inverso);
+    mpz_mul(jx3, jx3, inverso);
+    mpz_mod(jx3, jx3, p);
+    mpz_mul(inverso, inverso, inverso);
+    mpz_mul(inverso, inverso, jz3);
+    mpz_mul(jy3, jy3, inverso);
+    mpz_mod(jy3, jy3, p);
+
+    printf("\n-----------Suma con fórmulas mixtas en coordenadas afín-----------\n");
+    gmp_printf("G + 2J afin= (%#Zd, %#Zd)\n", jx3, jy3);
+
+
+    //Doblado con bloques atómicos 2G
+    time1 = clock();
+    AtomicBlockJacobianDoubling(jx1, jy1, jz1, p);
+    time2 = clock();
+    printf("Tiempo de ejecución: %f\n", (double)(time2 - time1) / CLOCKS_PER_SEC);
+
+    //Suma mixta con bloques atómicos G + 2G
+    time1 = clock();
+    AtomicBlockMixedAddition(jx2, jy2, jz2, x1, y1, p, inverso);
+    time2 = clock();
+    printf("Tiempo de ejecución: %f\n", (double)(time2 - time1) / CLOCKS_PER_SEC);
+
+
+
+    //Liberar memoria
+    mpz_clear(a);
+    mpz_clear(p);
+    mpz_clear(b);
+    mpz_clear(x1);
+    mpz_clear(y1);
+    mpz_clear(x2);
+    mpz_clear(y2);
+    mpz_clear(seed);
+    mpz_clear(lambda1);
+    mpz_clear(inverso);
+    mpz_clear(dos);
+    mpz_clear(tres);
+
+    return 0;
+}
+
+void dobladoAfin(mpz_t x1, mpz_t y1, mpz_t p, mpz_t a, mpz_t x2, mpz_t y2)
+{
+    //Declaración de variables
+    mpz_t lambda1, inverso;
+
+    //Inicialización de variables
+    mpz_init(lambda1);
+    mpz_init(inverso);
+
     //Cálculo de lambda1 para operación doblado de G
-    mpz_powm(lambda1, x1, dos, p);
-    mpz_mul(lambda1, lambda1, tres);
+    mpz_powm_ui(lambda1, x1, 2, p);
+    mpz_mul_ui(lambda1, lambda1, 3);
     mpz_add(lambda1, lambda1, a);
-    mpz_mul(inverso, y1, dos);
+    mpz_mul_ui(inverso, y1, 2);
     mpz_invert(inverso, inverso, p);
     mpz_mul(lambda1, lambda1, inverso);
     mpz_mod(lambda1, lambda1, p);
-
 
     //Cálculo de x2
     mpz_mul(x2, lambda1, lambda1);
@@ -114,15 +216,19 @@ int main()
     mpz_sub(y2, y2, y1);
     mpz_mod(y2, y2, p);
 
-    printf("-----------Parámetros de la EC-----------\n");
+    //Liberar la memoria
+    mpz_clear(lambda1);
+    mpz_clear(inverso);
+}
 
-    gmp_printf("primo: %#Zd\n", p);
-    gmp_printf("Elliptic Curve: y^2 = x^3 + %Zd *x + %Zd \n", a, b);
-    gmp_printf("Punto base G: (%#Zd, %#Zd) \n", x1, y1);
+void sumaAfin(mpz_t x1, mpz_t y1, mpz_t x2, mpz_t y2, mpz_t x3, mpz_t y3, mpz_t p)
+{
+    //Declaración de variables
+    mpz_t lambda1, inverso;
 
-    printf("-----------Doblado con fórmulas explícitas en coordenadas afín-----------\n");
-    
-    gmp_printf("2G = (%#Zd, %#Zd)\n", x2, y2);
+    //Inicialización de variables
+    mpz_init(lambda1);
+    mpz_init(inverso);
 
     //Cálculo de G + 2G con fórmula explícita
     mpz_sub(lambda1, y1, y2);
@@ -142,30 +248,34 @@ int main()
     mpz_sub(y3, y3, y1);
     mpz_mod(y3, y3, p);
 
-    printf("-----------Suma con fórmulas explícitas en coordenadas afín-----------\n");
+    //Liberar la memoria
+    mpz_clear(lambda1);
+    mpz_clear(inverso);
+}
 
-    gmp_printf("G + 2G = (%#Zd, %#Zd)\n", x3, y3);
+void dobladoJacobiano(mpz_t jx1, mpz_t jy1, mpz_t jz1, mpz_t jx2,mpz_t jy2, mpz_t jz2, mpz_t a, mpz_t p)
+{
+    //Declaración de variables
+    mpz_t alpha, beta, aux;
 
+    //Inicialización de variables
+    mpz_init(alpha);
+    mpz_init(beta);
+    mpz_init(aux);
 
-    //Set de coordenadas jacobianas punto J
-    mpz_set(jx1, x1);
-    mpz_set(jy1, y1);
-    mpz_set_ui(jz1, 1);
-
-    //Cálculo de 2J
     //Cálculo de alpha
-    mpz_powm(alpha, jx1, dos, p);
+    mpz_powm_ui(alpha, jx1, 2, p);
     mpz_mul_ui(alpha, alpha, 3);
     mpz_add(alpha, alpha, a);
 
     //Cálculo de beta
-    mpz_powm(beta, jy1, dos, p);
+    mpz_powm_ui(beta, jy1, 2, p);
     mpz_mul(beta, beta, jx1);
     mpz_mul_ui(beta, beta, 4);
 
     //Cálculo de jx2
-    mpz_powm(jx2, alpha, dos, p);
-    mpz_submul(jx2, beta, dos);
+    mpz_powm_ui(jx2, alpha, 2, p);
+    mpz_submul_ui(jx2, beta, 2);
     mpz_mod(jx2, jx2, p);
 
     //Cálculo de jy2
@@ -180,55 +290,50 @@ int main()
     mpz_add(jz2, jy1, jy1);
     mpz_mod(jz2, jz2, p);
 
-    printf("\n-----------Doblado con fórmulas explícitas en coordenadas jacobianas-----------\n");
+    //Liberar la memoria
+    mpz_clear(alpha);
+    mpz_clear(beta);
+    mpz_clear(aux);
 
-    gmp_printf("2J = (%#Zd, %#Zd, %#Zd)\n", jx2, jy2, jz2);
+}
 
-    //Conversión a coordenadas afines
-/*    mpz_invert(inverso, jz2, p);
-    mpz_mul(inverso, inverso, inverso);
-    mpz_mul(jx2, jx2, inverso);
-    mpz_mod(jx2, jx2, p);
-    mpz_mul(inverso, inverso, inverso);
-    mpz_mul(inverso, inverso, jz2);
-    mpz_mul(jy2, jy2, inverso);
-    mpz_mod(jy2, jy2, p); */
+void sumaMixta(mpz_t x1, mpz_t y1, mpz_t jx2, mpz_t jy2, mpz_t jz2, mpz_t jx3, mpz_t jy3, mpz_t jz3, mpz_t p)
+{
+    //Declaración de variables
+    mpz_t alpha, beta, aux;
 
-    printf("\n-----------Doblado con Jacobianas en coordenadas afín-----------\n");
-
-    gmp_printf("2J afin= (%#Zd, %#Zd)\n", jx2, jy2);
-
-
-    //Cálculo de G + 2J con suma mixta
-
-    printf("ABARZUAAAAAAA \n");
-    gmp_printf("G afin= (%#Zd, %#Zd)\n", x1, y1);
-    gmp_printf("2J afin= (%#Zd, %#Zd, %#Zd)\n", jx2, jy2, jz2);
-
+    //Inicialización de variables
+    mpz_init(alpha);
+    mpz_init(beta);
+    mpz_init(aux);
 
     //Cálculo de alpha
-    mpz_powm(alpha, jz2, tres, p);
+    mpz_powm_ui(alpha, jz2, 2, p);
+    mpz_mul(alpha, alpha, y1);
+    mpz_sub(alpha, alpha, jy2);
+
+    //Cálculo de alpha
+    mpz_powm_ui(alpha, jz2, 3, p);
     mpz_mul(alpha, alpha, y1);
     mpz_sub(alpha, alpha, jy2);
 
 
     //Cálculo de beta
-    mpz_powm(beta, jz2, dos, p);
+    mpz_powm_ui(beta, jz2, 2, p);
     mpz_mul(beta, beta, x1);
     mpz_sub(beta, beta, jx2);
 
     //Cálculo de jx3
-    mpz_powm(jx3, alpha, dos, p); //Alpha al cuadrado
-    mpz_powm(aux, beta, tres, p); //Beta al cubo
-    //mpz_submul(jx3, beta, aux); //Alpha al cuadrado - Beta al cubo
+    mpz_powm_ui(jx3, alpha, 2, p); //Alpha al cuadrado
+    mpz_powm_ui(aux, beta, 3, p); //Beta al cubo
     mpz_sub(jx3, jx3, aux); //Alpha al cuadrado - Beta al cubo
-    mpz_powm(aux, beta, dos, p); //Beta al cuadrado
+    mpz_powm_ui(aux, beta, 2, p); //Beta al cuadrado
     mpz_mul(aux, aux, jx2); //Beta al cuadrado * jx2
-    mpz_submul(jx3, aux, dos); //Alpha al cuadrado - Beta al cubo - 2*Beta al cuadrado * jx2
+    mpz_submul_ui(jx3, aux, 2); //Alpha al cuadrado - Beta al cubo - 2*Beta al cuadrado * jx2
     mpz_mod(jx3, jx3, p); //Modulo p
 
     //Cálculo de jy3
-    mpz_powm(aux, beta, dos, p); //Beta al cuadrado
+    mpz_powm_ui(aux, beta, 2, p); //Beta al cuadrado
     mpz_mul(jy3, jx2, aux); //jx2 * Beta al cuadrado
     mpz_sub(jy3, jy3, jx3); //jx2 * Beta al cuadrado - jx3
     mpz_mul(jy3, jy3, alpha);
@@ -241,55 +346,14 @@ int main()
     mpz_mul(jz3, jz2, beta);
     mpz_mod(jz3, jz3, p);
 
-    printf("\n-----------Suma con fórmulas mixtas en coordenadas jacobianas-----------\n");
-
-    gmp_printf("G + 2J = (%#Zd, %#Zd, %#Zd)\n", jx3, jy3, jz3);
-
-     //Conversión a coordenadas afines
-    mpz_invert(inverso, jz3, p);
-    mpz_mul(inverso, inverso, inverso);
-    mpz_mul(jx3, jx3, inverso);
-    mpz_mod(jx3, jx3, p);
-    mpz_mul(inverso, inverso, inverso);
-    mpz_mul(inverso, inverso, jz3);
-    mpz_mul(jy3, jy3, inverso);
-    mpz_mod(jy3, jy3, p);
-
-    printf("\n-----------Suma con fórmulas mixtas en coordenadas afín-----------\n");
-
-    gmp_printf("G + 2J afin= (%#Zd, %#Zd)\n", jx3, jy3);
-
-
-    //Liberar memoria
-    mpz_clear(a);
-    mpz_clear(p);
-    mpz_clear(b);
-    mpz_clear(x1);
-    mpz_clear(y1);
-    mpz_clear(x2);
-    mpz_clear(y2);
-    mpz_clear(seed);
-    mpz_clear(lambda1);
-    mpz_clear(inverso);
-    mpz_clear(dos);
-    mpz_clear(tres);
-
-
-    gmp_randclear(state);
-
-    return 0;
-}
-
-void echo(mpz_t *a, mpz_t *b)
-{
-    mpz_t c;
-    mpz_init(c);
-    mpz_add(c, *a, *b);
-    gmp_printf("This is the result: %#Zd\n", c);
-    mpz_clear(c);
+    //Liberar la memoria
+    mpz_clear(alpha);
+    mpz_clear(beta);
+    mpz_clear(aux);
 }
 
 void AtomicBlockJacobianDoubling(mpz_t jx1, mpz_t jy1, mpz_t jz1, mpz_t p){
+
     //mpz R1 a R8
     mpz_t R1, R2, R3, R4, R5, R6, R7, R8, jx3, jy3, jz3;
     mpz_init(R1);
@@ -300,6 +364,10 @@ void AtomicBlockJacobianDoubling(mpz_t jx1, mpz_t jy1, mpz_t jz1, mpz_t p){
     mpz_init(R6);
     mpz_init(R7);
     mpz_init(R8);
+    mpz_init(jx3);
+    mpz_init(jy3);
+    mpz_init(jz3);
+
 
     //R1 = jx1, R2 = jy1, R3 = jz1
     mpz_set(R1, jx1);
@@ -385,6 +453,9 @@ void AtomicBlockMixedAddition(mpz_t jx1, mpz_t jy1, mpz_t jz1, mpz_t x1, mpz_t y
     mpz_init(R10);
     mpz_init(R11);
     mpz_init(R12);
+    mpz_init(jx3);
+    mpz_init(jy3);
+    mpz_init(jz3);
 
         //Asignación
     mpz_set(R1, jx1);
